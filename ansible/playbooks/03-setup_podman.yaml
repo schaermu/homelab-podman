@@ -4,6 +4,52 @@
   roles:
     - pve_server
 
+- name: Setup application user and group
+  hosts: [podman]
+  become: true
+  tasks:
+    - name: Create application group
+      ansible.builtin.group:
+        name: podman-user
+        gid: 3000
+        state: present
+
+    - name: Create application user
+      ansible.builtin.user:
+        name: podman-user
+        group: podman-user
+        uid: 3000
+        create_home: true
+        shell: /usr/sbin/nologin
+        state: present
+    
+    - name: Enable lingering for application user
+      ansible.builtin.command: "loginctl enable-linger podman-user"
+      args:
+        creates: /var/lib/systemd/linger/podman-user
+    
+    - name: Create systemd folders for application user
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        mode: '0755'
+        owner: podman-user
+        group: podman-user
+        recurse: true
+      loop:
+        - /home/podman-user/.config/systemd/user
+        - /home/podman-user/.config/containers/systemd
+    
+    - name: Setup socket activation for HTTP/HTTPS traffic
+      ansible.builtin.template:
+        src: ./templates/systemd-socket.j2
+        dest: /home/podman-user/.config/systemd/user/{{ item.name }}.socket
+        owner: podman-user
+        group: podman-user
+      loop:
+        - { name: "web", port: 8080 }
+        - { name: "websecure", port: 8443 }
+
 - name: Install quad-ops (system-wide)
   hosts: [podman]
   become: true
@@ -36,6 +82,22 @@
       ansible.builtin.file:
         path: /usr/local/bin/quad-ops
         mode: '0755'
+        owner: root
+        group: root
+    
+    - name: Create configuration directory for Quad-Ops
+      ansible.builtin.file:
+        path: /etc/quad-ops
+        state: directory
+        mode: '0755'
+        owner: root
+        group: root
+    
+    - name: Copy Quad-Ops configuration file
+      ansible.builtin.copy:
+        src: ./files/quad-ops-config.yaml
+        dest: /etc/quad-ops/config.yaml
+        mode: '0644'
         owner: root
         group: root
 

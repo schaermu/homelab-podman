@@ -17,4 +17,4 @@ templates:
       polling-interval: 60s
       execute:
         timeout: 30
-        command: ["/bin/bash", "/etc/infisical-agent/update-secrets.sh"]
+        command: "/bin/bash /etc/infisical-agent/update-secrets.sh"
