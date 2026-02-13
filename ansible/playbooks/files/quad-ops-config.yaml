@@ -1,0 +1,4 @@
+repositories:
+  - name: homelab
+    url: https://github.com/schaermu/homelab-podman.git
+    composeDir: podman

@@ -1,0 +1,20 @@
+infisical:
+  address: "https://eu.infisical.com"
+auth:
+  type: "universal-auth"
+  config:
+    client-id: "/etc/infisical-agent/secrets/client-id"
+    client-secret: "/etc/infisical-agent/secrets/client-secret"
+    remove_client_secret_on_read: false
+sinks:
+  - type: "file"
+    config:
+      path: "/etc/infisical-agent/secrets/access-token"
+templates:
+  - source-path: /etc/infisical-agent/podman-secret.sh.tpl
+    destination-path: /tmp/ensure-podman-secrets.sh
+    config:
+      polling-interval: 60s
+      execute:
+        timeout: 30
+        command: ["/bin/bash", "/etc/infisical-agent/update-secrets.sh"]

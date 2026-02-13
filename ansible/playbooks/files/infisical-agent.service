@@ -1,0 +1,14 @@
+[Unit]
+Description=Infisical Agent
+
+[Service]
+Type=simple
+WorkingDirectory=/etc/infisical-agent
+ExecStart=/usr/bin/infisical agent --config config.yaml
+Restart=always
+RestartSec=10
+KillSignal=SIGINT
+SyslogIdentifier=infisical-agent
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,19 @@
+[tools]
+ansible = "latest"
+opentofu = "latest"
+
+[env]
+_.file = '.env.local'
+
+[tasks.tofu]
+dir = "tofu"
+run = "tofu"
+
+[tasks.run-ansible]
+usage = '''
+arg "<playbook>" help="Name of the playbook to run (without .yaml extension)"
+arg "<tags>" help="Comma-separated list of Ansible tags to run (defaults to 'all')" default="all"
+'''
+run = '''
+ansible-playbook ansible/playbooks/${usage_playbook?}.yaml --tags "${usage_tags?}"
+'''

@@ -1,0 +1,77 @@
+- name: Bootstrap PVE server
+  hosts: [bastion]
+  become: true
+  roles:
+    - pve_server
+
+- name: Setup bastion user
+  hosts: [bastion]
+  become: true
+  tasks:
+    - name: Ensure bastion group exists
+      ansible.builtin.group:
+        name: bastion
+        state: present
+        gid: 4004
+  
+    - name: Allow bastion group to have passwordless sudo
+      lineinfile:
+        dest: /etc/sudoers
+        state: present
+        regexp: '^%bastion'
+        line: '%bastion ALL=(ALL) NOPASSWD: ALL'
+        validate: 'visudo -cf %s'
+
+    - name: Ensure bastion user exists
+      ansible.builtin.user:
+        name: schaermu
+        state: present
+        create_home: true
+        uid: 4004
+        group: bastion
+        shell: /bin/bash
+  
+    - name: Set up authorized keys for bastion user
+      ansible.posix.authorized_key:
+        user: schaermu
+        state: present
+        key: '{{ item }}'
+      with_file:
+        - public_keys/schaermu@klappchuebu.pub
+        - public_keys/schaermu@donnerchuebu.pub
+  tags: bastion
+
+- name: Setup and configure SSH daemon
+  hosts: [bastion]
+  become: true
+  tasks:
+    - name: Ensure SSH daemon is installed
+      ansible.builtin.package:
+        name: openssh-server
+        state: present
+
+    - name: Copy SSH daemon configuration
+      ansible.builtin.template:
+        src: ./templates/sshd_config.j2
+        dest: /etc/ssh/sshd_config
+
+    - name: Ensure SSH daemon is restarted and enabled
+      ansible.builtin.service:
+        name: ssh
+        state: restarted
+        enabled: true
+  tags: bastion
+
+- name: Setup & connect Tailscale
+  hosts: [bastion]
+  pre_tasks:
+    - name: Read secrets from Infisical
+      ansible.builtin.include_role:
+        name: infisical
+        public: true
+      when: true
+  roles:
+    - role: artis3n.tailscale.machine
+      vars:
+        tailscale_authkey: "{{ secrets.secrets['TAILSCALE_AUTH_KEY'] }}"
+  tags: bastion

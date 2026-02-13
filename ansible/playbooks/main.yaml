@@ -1,0 +1,8 @@
+- name: Setup dns servers
+  ansible.builtin.import_playbook: 01-setup_dns.yaml
+
+- name: Setup bastion host
+  ansible.builtin.import_playbook: 02-setup_bastion.yaml
+
+- name: Setup local SSH config
+  ansible.builtin.import_playbook: 03-setup_local_ssh.yaml

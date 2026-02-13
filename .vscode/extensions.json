@@ -1,0 +1,9 @@
+{
+	"recommendations": [
+		"opentofu.vscode-opentofu",
+		"hverlin.mise-vscode",
+		"redhat.vscode-yaml",
+		"tamasfe.even-better-toml",
+		"esbenp.prettier-vscode"
+	]
+}

@@ -1,0 +1,8 @@
+# {{ ansible_managed }}
+
+{% if search is defined and search|length > 0 %}
+search {{ search | join(' ') }}
+{% endif %}
+{% for nameserver in nameservers %}
+nameserver {{ nameserver }}
+{% endfor %}
