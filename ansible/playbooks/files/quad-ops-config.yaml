@@ -1,3 +1,12 @@
+# Global settings
+repositoryDir: /var/lib/quad-ops
+syncInterval: 10m
+quadletDir: /home/podman-user/.config/containers/systemd
+userMode: true
+verbose: true
+unitStartTimeout: 15s
+imagePullTimeout: 60s
+
 repositories:
   - name: homelab
     url: https://github.com/schaermu/homelab-podman.git

@@ -13,7 +13,7 @@ volumes:
 
 services:
   proxy:
-    image: traefik:v3.6.4
+    image: docker.io/library/traefik:v3.6.4
     # environment:
     #   CF_API_EMAIL: ${CF_API_EMAIL}
     #   CF_DNS_API_TOKEN: ${CF_DNS_API_TOKEN}
@@ -37,12 +37,12 @@ services:
         mode: host
     configs:
       - source: traefik.yaml
-        target: /etc/traefik/traefik.yaml
+        target: /etc/traefik/traefik.yaml:z
       - source: dynamic.conf.yaml
-        target: /etc/traefik/dynamic.conf.yml
+        target: /etc/traefik/dynamic.conf.yml:z
     volumes:
       - /run/user/1001/podman/podman.sock:/var/run/docker.sock:ro
-      - traefik-certs:/certs
+      - traefik-certs:/certs:z
     labels:
       traefik.enable: "true"
       traefik.http.routers.dashboard.middlewares: "default-security-headers,gzip,oidc-auth"

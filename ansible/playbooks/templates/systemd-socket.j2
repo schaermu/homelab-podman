@@ -1,5 +1,5 @@
 [Socket]
-ListenStream={{ ansible_default_ipv4.address }}:{{ item.port }}
+ListenStream={{ ansible_facts.default_ipv4.address }}:{{ item.port }}
 FileDescriptorName={{ item.name }}
 Service=traefik.service
 

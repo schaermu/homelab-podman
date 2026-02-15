@@ -8,267 +8,276 @@
   hosts: [podman]
   become: true
   tasks:
-    - name: Check if user is lingering
-      ansible.builtin.stat:
-        path: "/var/lib/systemd/linger/podman-user"
-      register: user_lingering
+  - name: Check if user is lingering
+    ansible.builtin.stat:
+      path: "/var/lib/systemd/linger/podman-user"
+    register: user_lingering
 
-    - name: Enable lingering for user
-      ansible.builtin.command: "loginctl enable-linger podman-user"
-      changed_when: true
-      when: not user_lingering.stat.exists
-    
-    - name: Configure /etc/subuid and /etc/subgid for podman user
-      ansible.builtin.lineinfile:
-        path: "{{ sub_file }}"
-        line: "podman-user:100000:65536"
-        create: yes
-        state: present
-      register: subuid_config
-      loop: 
-        - "/etc/subuid"
-        - "/etc/subgid"
-      loop_control:
-        loop_var: sub_file
+  - name: Enable lingering for user
+    ansible.builtin.command: "loginctl enable-linger podman-user"
+    changed_when: true
+    when: not user_lingering.stat.exists
   
-    - name: Create systemd folders for application user
-      ansible.builtin.file:
-        path: "{{ item }}"
-        state: directory
-        mode: '0755'
-        owner: podman-user
-        group: podman-user
-        recurse: true
-      loop:
-        - /home/podman-user/.config/systemd/user
-        - /home/podman-user/.config/containers/systemd
-    
-    - name: Allow HTTP/HTTPS ports for unprivileged users
-      ansible.posix.sysctl:
-        name: net.ipv4.ip_unprivileged_port_start
-        value: '80'
-        sysctl_set: true
-        state: present
-        reload: true
+  - name: Configure /etc/subuid and /etc/subgid for podman user
+    ansible.builtin.lineinfile:
+      path: "{{ sub_file }}"
+      line: "podman-user:100000:65536"
+      create: yes
+      state: present
+    register: subuid_config
+    loop: 
+      - "/etc/subuid"
+      - "/etc/subgid"
+    loop_control:
+      loop_var: sub_file
+
+  - name: Create systemd folders for application user
+    ansible.builtin.file:
+      path: "{{ item }}"
+      state: directory
+      mode: '0755'
+      owner: podman-user
+      group: podman-user
+      recurse: true
+    loop:
+      - /home/podman-user/.config/quad-ops
+      - /home/podman-user/.config/systemd/user
+      - /home/podman-user/.config/containers/systemd
+  
+  - name: Allow HTTP/HTTPS ports for unprivileged users
+    ansible.posix.sysctl:
+      name: net.ipv4.ip_unprivileged_port_start
+      value: '80'
+      sysctl_set: true
+      state: present
+      reload: true
+
+- name: Download quad-ops and set up configuration
+  hosts: [podman]
+  become: true
+  tasks:
+  - name: Download latest release
+    ansible.builtin.get_url:
+      url: "https://github.com/trly/quad-ops/releases/download/v0.25.0/quad-ops_0.25.0_linux_amd64.tar.gz"
+      dest: /tmp/quad-ops_0.25.0_linux_amd64.tar.gz
+
+  - name: Download checksum
+    ansible.builtin.get_url:
+      url: "https://github.com/trly/quad-ops/releases/download/v0.25.0/quad-ops_0.25.0_checksums.txt"
+      dest: /tmp/quad-ops_0.25.0_checksums.txt
+  
+  - name: Verify checksum
+    ansible.builtin.shell: "sha256sum -c quad-ops_0.25.0_checksums.txt --ignore-missing"
+    args:
+      chdir: /tmp
+    register: expected_checksum
+
+  - name: Unarchive quad-ops
+    ansible.builtin.unarchive:
+      src: /tmp/quad-ops_0.25.0_linux_amd64.tar.gz
+      remote_src: true
+      dest: /usr/local/bin/
+      creates: /usr/local/bin/quad-ops
+    when: expected_checksum.rc == 0
+  
+  - name: Ensure quad-ops is executable and owned by root
+    ansible.builtin.file:
+      path: /usr/local/bin/quad-ops
+      mode: '0755'
+      owner: root
+      group: root
 
 - name: Configure podman user space
   hosts: [podman]
   tasks:
-    - name: Get UID of podman-user
-      ansible.builtin.user:
-        name: podman-user
-        state: present
-      register: podman_user_info
+  - name: Get UID of podman-user
+    ansible.builtin.user:
+      name: podman-user
+      state: present
+    register: podman_user_info
 
-    - name: Enable podman.socket for user
-      become_user: 'podman-user'
-      become: true
-      systemd: 
-        name: "podman.socket"
-        enabled: yes
-        state: started
-        scope: user
-      environment:
-        XDG_RUNTIME_DIR: "/run/user/{{ podman_user_info.uid }}"
-    
-    - name: Setup socket activation units for HTTP/HTTPS traffic
-      become_user: 'podman-user'
-      become: true
-      ansible.builtin.template:
-        src: ./templates/systemd-socket.j2
-        dest: /home/podman-user/.config/systemd/user/{{ item.name }}.socket
-        mode: '0644'
-      loop:
-        - { name: "web", port: 80 }
-        - { name: "websecure", port: 443 }
-
-    - name: Enable HTTP/HTTPS socket units for user # don't start them yet, Traefik will trigger them on demand
-      become_user: 'podman-user'
-      become: true
-      ansible.builtin.systemd:
-        name: "{{ item.name }}.socket"
-        enabled: true
-        scope: user
-      environment:
-        XDG_RUNTIME_DIR: "/run/user/{{ podman_user_info.uid }}"
-      loop:
-        - { name: "web" }
-        - { name: "websecure" }
-   
-- name: Install quad-ops (system-wide)
-  hosts: [podman]
-  become: true
-  tasks:
-    - name: Download latest release
-      ansible.builtin.get_url:
-        url: "https://github.com/trly/quad-ops/releases/download/v0.25.0/quad-ops_0.25.0_linux_amd64.tar.gz"
-        dest: /tmp/quad-ops_0.25.0_linux_amd64.tar.gz
+  - name: Enable podman.socket for user
+    become_user: 'podman-user'
+    become: true
+    systemd: 
+      name: "podman.socket"
+      enabled: yes
+      state: started
+      scope: user
+    environment:
+      XDG_RUNTIME_DIR: "/run/user/{{ podman_user_info.uid }}"
   
-    - name: Download checksum
-      ansible.builtin.get_url:
-        url: "https://github.com/trly/quad-ops/releases/download/v0.25.0/quad-ops_0.25.0_checksums.txt"
-        dest: /tmp/quad-ops_0.25.0_checksums.txt
-    
-    - name: Verify checksum
-      ansible.builtin.shell: "sha256sum -c quad-ops_0.25.0_checksums.txt --ignore-missing"
-      args:
-        chdir: /tmp
-      register: expected_checksum
+  - name: Setup socket activation units for HTTP/HTTPS traffic
+    become_user: 'podman-user'
+    become: true
+    ansible.builtin.template:
+      src: ./templates/systemd-socket.j2
+      dest: /home/podman-user/.config/systemd/user/{{ item.name }}.socket
+      mode: '0644'
+    loop:
+      - { name: "web", port: 80 }
+      - { name: "websecure", port: 443 }
+    register: socket_units
 
-    - name: Unarchive quad-ops
-      ansible.builtin.unarchive:
-        src: /tmp/quad-ops_0.25.0_linux_amd64.tar.gz
-        remote_src: true
-        dest: /usr/local/bin/
-        creates: /usr/local/bin/quad-ops
-      when: expected_checksum.rc == 0
-    
-    - name: Ensure quad-ops is executable and owned by root
-      ansible.builtin.file:
-        path: /usr/local/bin/quad-ops
-        mode: '0755'
-        owner: root
-        group: root
-    
-    - name: Create configuration directory for Quad-Ops
-      ansible.builtin.file:
-        path: /etc/quad-ops
-        state: directory
-        mode: '0755'
-        owner: root
-        group: root
-    
-    - name: Copy Quad-Ops configuration file
-      ansible.builtin.copy:
-        src: ./files/quad-ops-config.yaml
-        dest: /etc/quad-ops/config.yaml
-        mode: '0644'
-        owner: root
-        group: root
+  - name: Copy Quad-Ops configuration file
+    become_user: 'podman-user'
+    become: true
+    ansible.builtin.copy:
+      src: ./files/quad-ops-config.yaml
+      dest: /home/podman-user/.config/quad-ops/config.yaml
+      mode: '0644'
 
-    - name: Copy systemd service file for Quad-Ops service
-      ansible.builtin.copy:
-        src: ./files/quad-ops.service
-        dest: /etc/systemd/system/quad-ops.service
-        mode: '0644'
-      register: quad_ops_service
-    
-    - name: Reload systemd daemon
-      ansible.builtin.systemd:
-        daemon_reload: yes
-      when: quad_ops_service.changed
+  - name: Copy systemd service file for Quad-Ops service
+    become_user: 'podman-user'
+    become: true
+    ansible.builtin.copy:
+      src: ./files/quad-ops.service
+      dest: /home/podman-user/.config/systemd/user/quad-ops.service
+      mode: '0644'
+    register: quad_ops_service
+  
+  - name: Reload systemd daemon
+    become_user: 'podman-user'
+    become: true
+    ansible.builtin.systemd:
+      daemon_reload: yes
+      scope: user
+    environment:
+      XDG_RUNTIME_DIR: "/run/user/{{ podman_user_info.uid }}"
+    when: quad_ops_service.changed or socket_units.changed
 
-    - name: Ensure Quad-Ops service is started and enabled
-      ansible.builtin.service:
-        name: quad-ops
-        state: started
-        enabled: true
+  - name: Enable HTTP/HTTPS socket units for user # don't start them yet, Traefik will trigger them on demand
+    become_user: 'podman-user'
+    become: true
+    ansible.builtin.systemd:
+      name: "{{ item.name }}.socket"
+      enabled: true
+      scope: user
+    environment:
+      XDG_RUNTIME_DIR: "/run/user/{{ podman_user_info.uid }}"
+    loop:
+      - { name: "web" }
+      - { name: "websecure" }
 
-- name: Install Infisical CLI and set up as daemon
+  - name: Ensure Quad-Ops service is started and enabled
+    become_user: 'podman-user'
+    become: true
+    ansible.builtin.service:
+      name: quad-ops
+      state: started
+      enabled: true
+      scope: user
+    environment:
+      XDG_RUNTIME_DIR: "/run/user/{{ podman_user_info.uid }}"
+   
+- name: Install Infisical CLI
   hosts: [podman]
   become: true
   tasks:
-    - name: Install Infisical repositories
-      ansible.builtin.shell: |
-        curl -1sLf 'https://dl.cloudsmith.io/public/infisical/infisical-cli/setup.rpm.sh' | sudo -E bash
-      args:
-        creates: /etc/yum.repos.d/infisical-infisical-cli.repo
+  - name: Install Infisical repositories
+    ansible.builtin.shell: |
+      curl -1sLf 'https://dl.cloudsmith.io/public/infisical/infisical-cli/setup.rpm.sh' | sudo -E bash
+    args:
+      creates: /etc/yum.repos.d/infisical-infisical-cli.repo
 
-    - name: Install Infisical CLI
-      ansible.builtin.package:
-        name: infisical
-        state: present
+  - name: Install Infisical CLI
+    ansible.builtin.package:
+      name: infisical
+      state: present
 
 - name: Create Infisical agent configuration
   hosts: [podman]
   become: true
   tasks:
-    - name: Set facts
-      ansible.builtin.set_fact:
-        infisical_server_url: "{{ lookup('env', 'TF_VAR_infisical_server_url') }}"
-        infisical_project_id: "{{ lookup('env', 'TF_VAR_infisical_project_id') }}"
-        infisical_client_id: "{{ lookup('env', 'TF_VAR_infisical_client_id') }}"
-        infisical_client_secret: "{{ lookup('env', 'TF_VAR_infisical_client_secret') }}"
+  - name: Set facts
+    ansible.builtin.set_fact:
+      infisical_server_url: "{{ lookup('env', 'TF_VAR_infisical_server_url') }}"
+      infisical_project_id: "{{ lookup('env', 'TF_VAR_infisical_project_id') }}"
+      infisical_client_id: "{{ lookup('env', 'TF_VAR_infisical_client_id') }}"
+      infisical_client_secret: "{{ lookup('env', 'TF_VAR_infisical_client_secret') }}"
 
-    - name: Ensure Infisical agent configuration directory exists
-      ansible.builtin.file:
-        path: /etc/infisical-agent
-        state: directory
-        mode: '0755'
-        owner: root
-        group: root
+  - name: Ensure Infisical agent configuration directory exists
+    ansible.builtin.file:
+      path: /etc/infisical-agent
+      state: directory
+      mode: '0755'
+      owner: root
+      group: root
 
-    - name: Render secret update script template from template
-      ansible.builtin.template:
-        src: ./templates/podman-secret-template.sh.tpl.j2
-        dest: /etc/infisical-agent/podman-secret.sh.tpl
-        mode: '0700'
-        owner: root
-        group: root
-      vars:
-        project_id: "{{ infisical_project_id }}"
-    
-    - name: Copy Infisical agent configuration and secret update script
-      ansible.builtin.copy:
-        src: "./files/{{ item.src }}"
-        dest: "{{ item.dest }}"
-        mode: '0644'
-        owner: root
-        group: root
-      loop:
-        - { src: "infisical-agent-config.yaml", dest: "/etc/infisical-agent/config.yaml" }
-        - { src: "update-podman-secrets.sh", dest: "/etc/infisical-agent/update-secrets.sh" }
-    
-    - name: Ensure secret update script is executable
-      ansible.builtin.file:
-        path: /etc/infisical-agent/update-secrets.sh
-        mode: '0755'
-        owner: root
-        group: root
-    
-    - name: Ensure storage directory for agent secrets exists
-      ansible.builtin.file:
-        path: /etc/infisical-agent/secrets
-        state: directory
-        mode: '0700'
-        owner: root
-        group: root
-    
-    - name: Create secret files from facts
-      ansible.builtin.copy:
-        dest: /etc/infisical-agent/secrets/{{ item.key }}
-        content: "{{ item.value }}"
-        mode: '0600'
-        owner: root
-        group: root
-      loop:
-        - { key: "client-secret", value: "{{ infisical_client_secret }}" }
-        - { key: "client-id", value: "{{ infisical_client_id }}" }
+  - name: Render secret update script template from template
+    ansible.builtin.template:
+      src: ./templates/podman-secret-template.sh.tpl.j2
+      dest: /etc/infisical-agent/podman-secret.sh.tpl
+      mode: '0700'
+      owner: root
+      group: root
+    vars:
+      project_id: "{{ infisical_project_id }}"
+  
+  - name: Copy Infisical agent configuration and secret update script
+    ansible.builtin.copy:
+      src: "./files/{{ item.src }}"
+      dest: "{{ item.dest }}"
+      mode: '0644'
+      owner: root
+      group: root
+    loop:
+      - { src: "infisical-agent-config.yaml", dest: "/etc/infisical-agent/config.yaml" }
+      - { src: "update-podman-secrets.sh", dest: "/etc/infisical-agent/update-secrets.sh" }
+  
+  - name: Ensure secret update script is executable
+    ansible.builtin.file:
+      path: /etc/infisical-agent/update-secrets.sh
+      mode: '0755'
+      owner: root
+      group: root
+  
+  - name: Ensure storage directory for agent secrets exists
+    ansible.builtin.file:
+      path: /etc/infisical-agent/secrets
+      state: directory
+      mode: '0700'
+      owner: root
+      group: root
 
-    - name: Copy systemd service file for Infisical agent
-      ansible.builtin.copy:
-        src: ./files/infisical-agent.service
-        dest: /etc/systemd/system/infisical-agent.service
-        mode: '0644'
-      register: infisical_agent_service
-    
-    - name: Reload systemd daemon
-      ansible.builtin.systemd:
-        daemon_reload: yes
-      when: infisical_agent_service.changed
+- name: Install & start Infisical agent service
+  hosts: [podman]
+  become: true
+  tasks:
+  - name: Create secret files from facts
+    ansible.builtin.copy:
+      dest: /etc/infisical-agent/secrets/{{ item.key }}
+      content: "{{ item.value }}"
+      mode: '0600'
+      owner: root
+      group: root
+    loop:
+      - { key: "client-secret", value: "{{ infisical_client_secret }}" }
+      - { key: "client-id", value: "{{ infisical_client_id }}" }
 
-    - name: Ensure Infisical agent service is started and enabled
-      ansible.builtin.service:
-        name: infisical-agent
-        state: started
-        enabled: true
-    
-    - name: Wait for Infisical agent to render first import script
-      ansible.builtin.wait_for:
-        path: /tmp/ensure-podman-secrets.sh
-        state: present
-        timeout: 60
-    
-    - name: Execute update script to import secrets into podman
-      ansible.builtin.command: "/bin/bash /etc/infisical-agent/update-secrets.sh"
-      
+  - name: Copy systemd service file for Infisical agent
+    ansible.builtin.copy:
+      src: ./files/infisical-agent.service
+      dest: /etc/systemd/system/infisical-agent.service
+      mode: '0644'
+    register: infisical_agent_service
+  
+  - name: Reload systemd daemon
+    ansible.builtin.systemd:
+      daemon_reload: yes
+    when: infisical_agent_service.changed
+
+  - name: Ensure Infisical agent service is started and enabled
+    ansible.builtin.service:
+      name: infisical-agent
+      state: started
+      enabled: true
+  
+  - name: Wait for Infisical agent to render first import script
+    ansible.builtin.wait_for:
+      path: /tmp/ensure-podman-secrets.sh
+      state: present
+      timeout: 60
+  
+  - name: Execute update script to import secrets into podman
+    ansible.builtin.command: "/bin/bash /etc/infisical-agent/update-secrets.sh"

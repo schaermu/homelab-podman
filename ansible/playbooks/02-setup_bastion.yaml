@@ -8,33 +8,33 @@
   hosts: [bastion]
   become: true
   tasks:
-    - name: Ensure SSH daemon is installed
-      ansible.builtin.package:
-        name: openssh-server
-        state: present
+  - name: Ensure SSH daemon is installed
+    ansible.builtin.package:
+      name: openssh-server
+      state: present
 
-    - name: Copy SSH daemon configuration
-      ansible.builtin.template:
-        src: ./templates/sshd_config.j2
-        dest: /etc/ssh/sshd_config
+  - name: Copy SSH daemon configuration
+    ansible.builtin.template:
+      src: ./templates/sshd_config.j2
+      dest: /etc/ssh/sshd_config
 
-    - name: Ensure SSH daemon is restarted and enabled
-      ansible.builtin.service:
-        name: ssh
-        state: restarted
-        enabled: true
+  - name: Ensure SSH daemon is restarted and enabled
+    ansible.builtin.service:
+      name: ssh
+      state: restarted
+      enabled: true
   tags: bastion
 
 - name: Setup & connect Tailscale
   hosts: [bastion]
   pre_tasks:
-    - name: Read secrets from Infisical
-      ansible.builtin.include_role:
-        name: infisical
-        public: true
-      when: true
+  - name: Read secrets from Infisical
+    ansible.builtin.include_role:
+      name: infisical
+      public: true
+    when: true
   roles:
-    - role: artis3n.tailscale.machine
-      vars:
-        tailscale_authkey: "{{ secrets.secrets['TAILSCALE_AUTH_KEY'] }}"
+  - role: artis3n.tailscale.machine
+    vars:
+      tailscale_authkey: "{{ secrets.secrets['TAILSCALE_AUTH_KEY'] }}"
   tags: bastion
