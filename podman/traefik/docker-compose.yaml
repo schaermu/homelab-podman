@@ -1,0 +1,52 @@
+configs:
+  traefik.yaml:
+    file: ./config/traefik.yaml
+  dynamic.conf.yaml:
+    file: ./config/dynamic.conf.yaml
+
+networks:
+  default:
+    name: traefik-public
+
+volumes:
+  traefik-certs:
+
+services:
+  proxy:
+    image: traefik:v3.6.4
+    # environment:
+    #   CF_API_EMAIL: ${CF_API_EMAIL}
+    #   CF_DNS_API_TOKEN: ${CF_DNS_API_TOKEN}
+    #   OIDC_CLIENT_ID: ${OIDC_CLIENT_ID}
+    #   OIDC_CLIENT_SECRET: ${OIDC_CLIENT_SECRET}
+    #   OIDC_SECRET: ${OIDC_SECRET}
+    x-podman-env-secrets:
+      TRAEFIK_CF_API_EMAIL: CF_API_EMAIL
+      TRAEFIK_CF_DNS_API_TOKEN: CF_DNS_API_TOKEN
+      TRAEFIK_OIDC_CLIENT_ID: OIDC_CLIENT_ID
+      TRAEFIK_OIDC_CLIENT_SECRET: OIDC_CLIENT_SECRET
+      TRAEFIK_OIDC_SECRET: OIDC_SECRET
+    ports:
+      - target: 80
+        published: 80
+        protocol: tcp
+        mode: host
+      - target: 443
+        published: 443
+        protocol: tcp
+        mode: host
+    configs:
+      - source: traefik.yaml
+        target: /etc/traefik/traefik.yaml
+      - source: dynamic.conf.yaml
+        target: /etc/traefik/dynamic.conf.yml
+    volumes:
+      - /run/user/1001/podman/podman.sock:/var/run/docker.sock:ro
+      - traefik-certs:/certs
+    labels:
+      traefik.enable: "true"
+      traefik.http.routers.dashboard.middlewares: "default-security-headers,gzip,oidc-auth"
+      traefik.http.routers.dashboard.entryPoints: "websecure"
+      traefik.http.routers.dashboard.service: "api@internal"
+      traefik.http.routers.dashboard.rule: "Host(`traefik.lab.schaermu.ch`)"
+      traefik.http.services.traefik.loadbalancer.server.port: 8080

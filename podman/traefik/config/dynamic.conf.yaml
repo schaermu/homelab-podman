@@ -1,0 +1,56 @@
+# yaml-language-server: $schema=https://json.schemastore.org/traefik-v3.json
+tls:
+  options:
+    default:
+      minVersion: VersionTLS12
+      cipherSuites:
+        - TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256
+        - TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384
+        - TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305
+        - TLS_AES_128_GCM_SHA256
+        - TLS_AES_256_GCM_SHA384
+        - TLS_CHACHA20_POLY1305_SHA256
+      curvePreferences:
+        - CurveP521
+        - CurveP384
+      sniStrict: true
+
+http:
+  middlewares:
+    default:
+      chain:
+        middlewares:
+          - default-security-headers
+          - gzip
+
+    default-security-headers:
+      headers:
+        browserXssFilter: true
+        contentTypeNosniff: false
+        forceSTSHeader: true
+        frameDeny: true
+        stsIncludeSubdomains: true
+        stsPreload: true
+        stsSeconds: 31536000
+        customFrameOptionsValue: "SAMEORIGIN"
+
+    gzip:
+      compress: {}
+
+    oidc-auth:
+      plugin:
+        traefik-oidc-auth:
+          Secret: "${OIDC_SECRET}"
+          SessionCookie:
+            Domain: ".schaermu.ch"
+          Provider:
+              ClientId: "${OIDC_CLIENT_ID}"
+              ClientSecret: "${OIDC_CLIENT_SECRET}"
+              Url: https://auth.schaermu.ch
+              UsePkce: true
+          Scopes:
+              - openid
+              - profile
+              - email
+              - groups
+
