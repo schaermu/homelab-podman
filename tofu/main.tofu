@@ -28,7 +28,7 @@ module "podman" {
     datastore_id          = var.datastore_id
     template_datastore_id = var.template_datastore_id
     disk_image_id         = resource.proxmox_virtual_environment_download_file.fedora_server_iso.id
-    user_data_file_id     = proxmox_virtual_environment_file.user_data_base_cloud_config.id
+    user_data_file_id     = proxmox_virtual_environment_file.cloud_init_podman.id
     tags                  = ["podman", "container-runtime"]
 
     specs = {
@@ -60,7 +60,7 @@ module "bastion" {
     datastore_id          = var.datastore_id
     template_datastore_id = var.template_datastore_id
     disk_image_id         = data.proxmox_virtual_environment_file.debian_iso.id
-    user_data_file_id     = proxmox_virtual_environment_file.user_data_base_cloud_config.id
+    user_data_file_id     = proxmox_virtual_environment_file.cloud_init_bastion.id
     tags                  = ["bastion", "ssh-access"]
 
     specs = {
@@ -92,12 +92,12 @@ module "technitium_primary_dns" {
     datastore_id          = var.datastore_id
     template_datastore_id = var.template_datastore_id
     disk_image_id         = data.proxmox_virtual_environment_file.debian_iso.id
-    user_data_file_id     = proxmox_virtual_environment_file.user_data_base_cloud_config.id
+    user_data_file_id     = proxmox_virtual_environment_file.cloud_init_technitium.id
     tags                  = ["technitium", "dns", "primary"]
 
     specs = {
       cpu       = 1
-      memory    = 1024
+      memory    = 4096
       disk_size = 32
     }
 

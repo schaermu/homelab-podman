@@ -8,26 +8,29 @@
   hosts: [podman]
   become: true
   tasks:
-    - name: Create application group
-      ansible.builtin.group:
-        name: podman-user
-        gid: 3000
-        state: present
+    - name: Check if user is lingering
+      ansible.builtin.stat:
+        path: "/var/lib/systemd/linger/podman-user"
+      register: user_lingering
 
-    - name: Create application user
-      ansible.builtin.user:
-        name: podman-user
-        group: podman-user
-        uid: 3000
-        create_home: true
-        shell: /usr/sbin/nologin
-        state: present
-    
-    - name: Enable lingering for application user
+    - name: Enable lingering for user
       ansible.builtin.command: "loginctl enable-linger podman-user"
-      args:
-        creates: /var/lib/systemd/linger/podman-user
+      changed_when: true
+      when: not user_lingering.stat.exists
     
+    - name: Configure /etc/subuid and /etc/subgid for podman user
+      ansible.builtin.lineinfile:
+        path: "{{ sub_file }}"
+        line: "podman-user:100000:65536"
+        create: yes
+        state: present
+      register: subuid_config
+      loop: 
+        - "/etc/subuid"
+        - "/etc/subgid"
+      loop_control:
+        loop_var: sub_file
+  
     - name: Create systemd folders for application user
       ansible.builtin.file:
         path: "{{ item }}"
@@ -40,16 +43,58 @@
         - /home/podman-user/.config/systemd/user
         - /home/podman-user/.config/containers/systemd
     
-    - name: Setup socket activation for HTTP/HTTPS traffic
+    - name: Allow HTTP/HTTPS ports for unprivileged users
+      ansible.posix.sysctl:
+        name: net.ipv4.ip_unprivileged_port_start
+        value: '80'
+        sysctl_set: true
+        state: present
+        reload: true
+
+- name: Configure podman user space
+  hosts: [podman]
+  tasks:
+    - name: Get UID of podman-user
+      ansible.builtin.user:
+        name: podman-user
+        state: present
+      register: podman_user_info
+
+    - name: Enable podman.socket for user
+      become_user: 'podman-user'
+      become: true
+      systemd: 
+        name: "podman.socket"
+        enabled: yes
+        state: started
+        scope: user
+      environment:
+        XDG_RUNTIME_DIR: "/run/user/{{ podman_user_info.uid }}"
+    
+    - name: Setup socket activation units for HTTP/HTTPS traffic
+      become_user: 'podman-user'
+      become: true
       ansible.builtin.template:
         src: ./templates/systemd-socket.j2
         dest: /home/podman-user/.config/systemd/user/{{ item.name }}.socket
-        owner: podman-user
-        group: podman-user
+        mode: '0644'
       loop:
-        - { name: "web", port: 8080 }
-        - { name: "websecure", port: 8443 }
+        - { name: "web", port: 80 }
+        - { name: "websecure", port: 443 }
 
+    - name: Enable HTTP/HTTPS socket units for user # don't start them yet, Traefik will trigger them on demand
+      become_user: 'podman-user'
+      become: true
+      ansible.builtin.systemd:
+        name: "{{ item.name }}.socket"
+        enabled: true
+        scope: user
+      environment:
+        XDG_RUNTIME_DIR: "/run/user/{{ podman_user_info.uid }}"
+      loop:
+        - { name: "web" }
+        - { name: "websecure" }
+   
 - name: Install quad-ops (system-wide)
   hosts: [podman]
   become: true
@@ -217,3 +262,13 @@
         name: infisical-agent
         state: started
         enabled: true
+    
+    - name: Wait for Infisical agent to render first import script
+      ansible.builtin.wait_for:
+        path: /tmp/ensure-podman-secrets.sh
+        state: present
+        timeout: 60
+    
+    - name: Execute update script to import secrets into podman
+      ansible.builtin.command: "/bin/bash /etc/infisical-agent/update-secrets.sh"
+      

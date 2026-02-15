@@ -4,43 +4,6 @@
   roles:
     - pve_server
 
-- name: Setup bastion user
-  hosts: [bastion]
-  become: true
-  tasks:
-    - name: Ensure bastion group exists
-      ansible.builtin.group:
-        name: bastion
-        state: present
-        gid: 4004
-  
-    - name: Allow bastion group to have passwordless sudo
-      lineinfile:
-        dest: /etc/sudoers
-        state: present
-        regexp: '^%bastion'
-        line: '%bastion ALL=(ALL) NOPASSWD: ALL'
-        validate: 'visudo -cf %s'
-
-    - name: Ensure bastion user exists
-      ansible.builtin.user:
-        name: schaermu
-        state: present
-        create_home: true
-        uid: 4004
-        group: bastion
-        shell: /bin/bash
-  
-    - name: Set up authorized keys for bastion user
-      ansible.posix.authorized_key:
-        user: schaermu
-        state: present
-        key: '{{ item }}'
-      with_file:
-        - public_keys/schaermu@klappchuebu.pub
-        - public_keys/schaermu@donnerchuebu.pub
-  tags: bastion
-
 - name: Setup and configure SSH daemon
   hosts: [bastion]
   become: true

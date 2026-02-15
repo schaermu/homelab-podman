@@ -8,34 +8,20 @@
   hosts: dns
   become: true
   tasks:
-    - name: Ensure technitium group exists
-      ansible.builtin.group:
-        name: technitium-dns-server
-        state: present
-
-    - name: Ensure technitium user exists
-      ansible.builtin.user:
-        name: technitium-dns-server
-        state: present
-        create_home: false
-        shell: /usr/sbin/nologin
-        system: true
-        group: technitium-dns-server
-
     - name: Create installation directory
       ansible.builtin.file:
         path: /opt/technitium/dns
         state: directory
-        owner: technitium-dns-server
-        group: technitium-dns-server
+        owner: technitium-user
+        group: technitium-user
         mode: '0755'
 
     - name: Set ownership of /etc/dns folder
       ansible.builtin.file:
         path: /etc/dns
         state: directory
-        owner: technitium-dns-server
-        group: technitium-dns-server
+        owner: technitium-user
+        group: technitium-user
         mode: '0755'
   tags: dns
 
@@ -76,8 +62,8 @@
       ansible.builtin.unarchive:
         src: https://download.technitium.com/dns/DnsServerPortable.tar.gz
         dest: /opt/technitium/dns
-        owner: technitium-dns-server
-        group: technitium-dns-server
+        owner: technitium-user
+        group: technitium-user
         mode: '0755'
         remote_src: yes
         creates: /opt/technitium/dns/DnsServerApp.dll

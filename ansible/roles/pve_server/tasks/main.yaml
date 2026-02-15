@@ -9,3 +9,10 @@
     post_reboot_delay: 10
     reboot_timeout: 300
   when: ansible_facts['hostname'] != inventory_hostname
+
+- name: Install base packages
+  ansible.builtin.package:
+    name:
+      - acl
+      - vim
+    state: present
