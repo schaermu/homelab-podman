@@ -40,52 +40,40 @@
       group: podman-user
       recurse: true
     loop:
-      - /home/podman-user/.config/quad-ops
-      - /home/podman-user/.config/systemd/user
-      - /home/podman-user/.config/containers/systemd
+      - /home/podman-user/.config/systemd/containers
   
-  - name: Allow HTTP/HTTPS ports for unprivileged users
-    ansible.posix.sysctl:
-      name: net.ipv4.ip_unprivileged_port_start
-      value: '80'
-      sysctl_set: true
-      state: present
-      reload: true
-
-- name: Download quad-ops and set up configuration
+- name: Setup firewall rules for privileged ports
   hosts: [podman]
   become: true
   tasks:
-  - name: Download latest release
-    ansible.builtin.get_url:
-      url: "https://github.com/trly/quad-ops/releases/download/v0.25.0/quad-ops_0.25.0_linux_amd64.tar.gz"
-      dest: /tmp/quad-ops_0.25.0_linux_amd64.tar.gz
-
-  - name: Download checksum
-    ansible.builtin.get_url:
-      url: "https://github.com/trly/quad-ops/releases/download/v0.25.0/quad-ops_0.25.0_checksums.txt"
-      dest: /tmp/quad-ops_0.25.0_checksums.txt
+  - name: Install firewalld
+    ansible.builtin.package:
+      name: firewalld
+      state: present
   
-  - name: Verify checksum
-    ansible.builtin.shell: "sha256sum -c quad-ops_0.25.0_checksums.txt --ignore-missing"
-    args:
-      chdir: /tmp
-    register: expected_checksum
+  - name: Ensure firewalld is started and enabled
+    ansible.builtin.service:
+      name: firewalld
+      state: started
+      enabled: true
 
-  - name: Unarchive quad-ops
-    ansible.builtin.unarchive:
-      src: /tmp/quad-ops_0.25.0_linux_amd64.tar.gz
-      remote_src: true
-      dest: /usr/local/bin/
-      creates: /usr/local/bin/quad-ops
-    when: expected_checksum.rc == 0
-  
-  - name: Ensure quad-ops is executable and owned by root
-    ansible.builtin.file:
-      path: /usr/local/bin/quad-ops
-      mode: '0755'
-      owner: root
-      group: root
+  - name: Install python firewall module
+    ansible.builtin.package:
+      name: python3-firewall
+      state: present
+
+  - name: Redirect privileged ports to non-privileged ports using firewalld
+    ansible.posix.firewalld:
+      rich_rule: rule family=ipv4 forward-port port={{ fw_rule.port }} protocol=tcp to-port={{ fw_rule.to_port }}
+      zone: public
+      permanent: true
+      immediate: true
+      state: enabled
+    loop:
+      - { port: 80, to_port: 8080 }
+      - { port: 443, to_port: 8443 }
+    loop_control:
+      loop_var: fw_rule
 
 - name: Configure podman user space
   hosts: [podman]
@@ -115,27 +103,10 @@
       dest: /home/podman-user/.config/systemd/user/{{ item.name }}.socket
       mode: '0644'
     loop:
-      - { name: "web", port: 80 }
-      - { name: "websecure", port: 443 }
+      - { name: "web", port: 8080 }
+      - { name: "websecure", port: 8443 }
     register: socket_units
 
-  - name: Copy Quad-Ops configuration file
-    become_user: 'podman-user'
-    become: true
-    ansible.builtin.copy:
-      src: ./files/quad-ops-config.yaml
-      dest: /home/podman-user/.config/quad-ops/config.yaml
-      mode: '0644'
-
-  - name: Copy systemd service file for Quad-Ops service
-    become_user: 'podman-user'
-    become: true
-    ansible.builtin.copy:
-      src: ./files/quad-ops.service
-      dest: /home/podman-user/.config/systemd/user/quad-ops.service
-      mode: '0644'
-    register: quad_ops_service
-  
   - name: Reload systemd daemon
     become_user: 'podman-user'
     become: true
@@ -144,9 +115,9 @@
       scope: user
     environment:
       XDG_RUNTIME_DIR: "/run/user/{{ podman_user_info.uid }}"
-    when: quad_ops_service.changed or socket_units.changed
+    when: socket_units.changed
 
-  - name: Enable HTTP/HTTPS socket units for user # don't start them yet, Traefik will trigger them on demand
+  - name: Enable HTTP/HTTPS socket units for user # don't start them yet, Traefik will activate them on demand
     become_user: 'podman-user'
     become: true
     ansible.builtin.systemd:
@@ -159,17 +130,6 @@
       - { name: "web" }
       - { name: "websecure" }
 
-  - name: Ensure Quad-Ops service is started and enabled
-    become_user: 'podman-user'
-    become: true
-    ansible.builtin.service:
-      name: quad-ops
-      state: started
-      enabled: true
-      scope: user
-    environment:
-      XDG_RUNTIME_DIR: "/run/user/{{ podman_user_info.uid }}"
-   
 - name: Install Infisical CLI
   hosts: [podman]
   become: true
