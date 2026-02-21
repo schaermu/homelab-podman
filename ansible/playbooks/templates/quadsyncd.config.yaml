@@ -1,5 +1,6 @@
 repo:
-  url: "git@github.com:schaermu/homelab-podman.git"
+  url: "https://github.com/schaermu/homelab-podman.git"
+  ref: "main"
   subdir: "podman"
 
 paths:

@@ -4,6 +4,17 @@
   roles:
     - pve_server
 
+- name: Install necessary packages podman host
+  hosts: [podman]
+  become: true
+  tasks:
+    - name: Install system packages
+      ansible.builtin.package:
+        name:
+          - firewalld
+          - git 
+        state: present
+
 - name: Setup application user and group
   hosts: [podman]
   become: true
@@ -47,12 +58,7 @@
 - name: Setup firewall rules for privileged ports
   hosts: [podman]
   become: true
-  tasks:
-  - name: Install firewalld
-    ansible.builtin.package:
-      name: firewalld
-      state: present
-  
+  tasks:  
   - name: Ensure firewalld is started and enabled
     ansible.builtin.service:
       name: firewalld
@@ -133,6 +139,8 @@
       - { name: "websecure" }
 
   - name: Generate quadsyncd configuration for podman user
+    become_user: 'podman-user'
+    become: true
     ansible.builtin.template:
       src: ./templates/quadsyncd.config.yaml
       dest: /home/podman-user/.config/quadsyncd/config.yaml
@@ -242,12 +250,16 @@
       name: infisical-agent
       state: started
       enabled: true
+    when: infisical_agent_service.changed
   
   - name: Wait for Infisical agent to render first import script
     ansible.builtin.wait_for:
       path: /tmp/ensure-podman-secrets.sh
       state: present
       timeout: 60
+    register: wait_for_script
+    when: infisical_agent_service.changed
   
   - name: Execute update script to import secrets into podman
     ansible.builtin.command: "/bin/bash /etc/infisical-agent/update-secrets.sh"
+    when: wait_for_script.changed
