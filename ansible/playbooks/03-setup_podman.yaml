@@ -40,7 +40,9 @@
       group: podman-user
       recurse: true
     loop:
-      - /home/podman-user/.config/systemd/containers
+      - /home/podman-user/.config/containers/systemd
+      - /home/podman-user/.config/quadsyncd
+      - /home/podman-user/.local/state/quadsyncd
   
 - name: Setup firewall rules for privileged ports
   hosts: [podman]
@@ -129,6 +131,14 @@
     loop:
       - { name: "web" }
       - { name: "websecure" }
+
+  - name: Generate quadsyncd configuration for podman user
+    ansible.builtin.template:
+      src: ./templates/quadsyncd.config.yaml
+      dest: /home/podman-user/.config/quadsyncd/config.yaml
+      mode: '0644'
+      owner: podman-user
+      group: podman-user
 
 - name: Install Infisical CLI
   hosts: [podman]

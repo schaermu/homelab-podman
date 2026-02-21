@@ -1,0 +1,12 @@
+repo:
+  url: "git@github.com:schaermu/homelab-podman.git"
+  subdir: "podman"
+
+paths:
+  # ${HOME} will be expanded to the home directory of the user running quadsyncd
+  quadlet_dir: "${HOME}/.config/containers/systemd"
+  state_dir: "${HOME}/.local/state/quadsyncd"
+
+sync:
+  prune: true
+  restart: "changed"
