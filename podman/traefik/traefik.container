@@ -1,0 +1,31 @@
+[Unit]
+After=web.socket websecure.socket podman.socket
+Requires=web.socket websecure.socket podman.socket
+
+[Service]
+Sockets=web.socket websecure.socket
+
+[Container]
+Image=docker.io/library/traefik:v3.6.8
+Network=proxy.network
+Notify=true
+SecurityLabelDisable=true
+
+Volume=./config:/etc/traefik/:z
+Volume=traefik-certs:/certs:z
+Volume=%t/podman/podman.sock:/var/run/docker.sock:ro
+
+Secret=TRAEFIK_CF_API_EMAIL,type=env,target=CF_API_EMAIL
+Secret=TRAEFIK_CF_DNS_API_TOKEN,type=env,target=CF_DNS_API_TOKEN
+Secret=TRAEFIK_OIDC_CLIENT_ID,type=env,target=OIDC_CLIENT_ID
+Secret=TRAEFIK_OIDC_CLIENT_SECRET,type=env,target=OIDC_CLIENT_SECRET
+Secret=TRAEFIK_OIDC_SECRET,type=env,target=OIDC_SECRET
+
+Label=traefik.enable=true
+Label=traefik.http.routers.api.rule=Host(`traefik.lab.schaermu.ch`)
+Label=traefik.http.routers.api.service=api@internal
+Label=traefik.http.routers.api.entrypoints=websecure
+Label=traefik.http.services.traefik.loadbalancer.server.port=8080
+
+[Install]
+WantedBy=default.target
