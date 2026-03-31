@@ -15,6 +15,8 @@ certificatesResolvers:
       storage: "/certs/acme_technitium.json"
       dnsChallenge:
         provider: rfc2136
+        propagation:
+          disableANSChecks: true
 
 entryPoints:
   web:
