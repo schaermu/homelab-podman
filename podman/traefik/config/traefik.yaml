@@ -13,10 +13,14 @@ certificatesResolvers:
     acme:
       email: "schaermu+acme@pm.me"
       storage: "/certs/acme_technitium.json"
+      caServer: "https://acme-staging-v02.api.letsencrypt.org/directory"
       dnsChallenge:
         provider: rfc2136
+        resolvers:
+          - 192.168.1.25:53
         propagation:
           disableANSChecks: true
+          disableChecks: true
 
 entryPoints:
   web:
