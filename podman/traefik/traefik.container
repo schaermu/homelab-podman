@@ -15,9 +15,13 @@ Volume=./config:/etc/traefik/:z
 Volume=traefik-certs:/certs:z
 Volume=%t/podman/podman.sock:/var/run/docker.sock:ro
 
+Environment=RFC2136_TSIG_ALGORITHM=hmac-sha256
+Environment=RFC2136_TSIG_KEY=acme-tsig
+Environment=RFC2136_NAMESERVER=192.168.1.25:53
+
 Secret=TRAEFIK_CF_API_EMAIL,type=env,target=CF_API_EMAIL
 Secret=TRAEFIK_CF_DNS_API_TOKEN,type=env,target=CF_DNS_API_TOKEN
-Secret=TRAEFIK_RFC2136_NAMESERVER,type=env,target=RFC2136_NAMESERVER
+Secret=TRAEFIK_RFC2136_TSIG_SECRET,type=env,target=RFC2136_TSIG_KEY
 Secret=TRAEFIK_OIDC_CLIENT_ID,type=env,target=OIDC_CLIENT_ID
 Secret=TRAEFIK_OIDC_CLIENT_SECRET,type=env,target=OIDC_CLIENT_SECRET
 Secret=TRAEFIK_OIDC_SECRET,type=env,target=OIDC_SECRET
