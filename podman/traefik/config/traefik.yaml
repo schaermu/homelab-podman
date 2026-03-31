@@ -9,12 +9,6 @@ experimental:
       version: "v0.17.0"
 
 certificatesResolvers:
-  cloudflare:
-    acme:
-      email: "schaermu+acme@pm.me"
-      storage: "/certs/acme_cloudflare.json"
-      dnsChallenge:
-        provider: cloudflare
   technitium:
     acme:
       email: "schaermu+acme@pm.me"
@@ -64,7 +58,7 @@ providers:
   providersThrottleDuration: 10s
 
 log:
-  level: WARN
+  level: DEBUG
 
 metrics:
   prometheus: {}

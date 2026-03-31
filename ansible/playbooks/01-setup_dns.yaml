@@ -187,24 +187,24 @@
     effectivelywild.technitium_dns.technitium_dns_record:
       api_url: "{{ api_url }}"
       api_token: "{{ login_result.token }}"
-      zone: "schaermu.ch"
+      zone: "lab.schaermu.ch"
       type: "A"
-      name: "{{ item.name }}.schaermu.ch"
+      name: "{{ item.name }}.lab.schaermu.ch"
       ttl: 3600
       ipAddress: "{{ item.address }}"
       state: "present"
       validate_certs: false
     loop:
-      - {name: "nas.lab", address: "192.168.1.40"}
-      - {name: "dns1.lab", address: "{{ ansible_facts.default_ipv4.address }}"}
-      - {name: "arthur.lab", address: "192.168.1.20"}
-      - {name: "proxy.lab", address: "{{ lookup('env', 'TF_VAR_hosts_podman_ip') }}"}
+      - {name: "nas", address: "192.168.1.40"}
+      - {name: "dns1", address: "{{ ansible_facts.default_ipv4.address }}"}
+      - {name: "arthur", address: "192.168.1.20"}
+      - {name: "proxy", address: "{{ lookup('env', 'TF_VAR_hosts_podman_ip') }}"}
   
-  - name: Create CNAME records for wildcard subdomains
+  - name: Create CNAME record for wildcard subdomains
     effectivelywild.technitium_dns.technitium_dns_record:
       api_url: "{{ api_url }}"
       api_token: "{{ login_result.token }}"
-      zone: "schaermu.ch"
+      zone: "lab.schaermu.ch"
       type: "CNAME"
       name: "*.lab.schaermu.ch"
       ttl: 3600
