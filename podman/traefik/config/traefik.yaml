@@ -9,12 +9,18 @@ experimental:
       version: "v0.17.0"
 
 certificatesResolvers:
-  letsencrypt:
+  cloudflare:
     acme:
       email: "schaermu+acme@pm.me"
-      storage: "/certs/acme_letsencrypt.json"
+      storage: "/certs/acme_cloudflare.json"
       dnsChallenge:
         provider: cloudflare
+  technitium:
+    acme:
+      email: "schaermu+acme@pm.me"
+      storage: "/certs/acme_technitium.json"
+      dnsChallenge:
+        provider: technitium
 
 entryPoints:
   web:
@@ -34,11 +40,10 @@ entryPoints:
         writeTimeout: 600s
     http:
       tls:
-        certResolver: letsencrypt
+        certResolver: technitium
         domains:
-          - main: schaermu.ch
+          - main: lab.schaermu.ch
             sans:
-              - "*.schaermu.ch"
               - "*.lab.schaermu.ch"
       middlewares:
         - default@file
