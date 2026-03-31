@@ -173,6 +173,15 @@
       protocol: "Udp"
       state: "present"
       validate_certs: false
+
+  - name: Create lab zone for internal records
+    effectivelywild.technitium_dns.technitium_dns_zone:
+      api_url: "{{ api_url }}"
+      api_token: "{{ login_result.token }}"
+      zone: "lab.schaermu.ch"
+      type: "Primary"
+      state: "present"
+      validate_certs: false
   
   - name: Create internal records for schaermu.ch
     effectivelywild.technitium_dns.technitium_dns_record:

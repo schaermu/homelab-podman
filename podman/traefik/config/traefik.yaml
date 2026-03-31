@@ -20,7 +20,7 @@ certificatesResolvers:
       email: "schaermu+acme@pm.me"
       storage: "/certs/acme_technitium.json"
       dnsChallenge:
-        provider: technitium
+        provider: rfc2136
 
 entryPoints:
   web:
