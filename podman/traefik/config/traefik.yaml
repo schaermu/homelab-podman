@@ -13,7 +13,7 @@ certificatesResolvers:
     acme:
       email: "schaermu+acme@pm.me"
       storage: "/certs/acme_cloudflare.json"
-      caServer: "https://acme-staging-v02.api.letsencrypt.org/directory"
+      caServer: "https://acme-v02.api.letsencrypt.org/directory"
       dnsChallenge:
         provider: cloudflare
         resolvers:
@@ -62,7 +62,7 @@ providers:
   providersThrottleDuration: 10s
 
 log:
-  level: DEBUG
+  level: INFO
 
 metrics:
   prometheus: {}
