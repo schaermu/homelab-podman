@@ -9,13 +9,13 @@ experimental:
       version: "v0.17.0"
 
 certificatesResolvers:
-  technitium:
+  cloudflare:
     acme:
       email: "schaermu+acme@pm.me"
-      storage: "/certs/acme_technitium.json"
+      storage: "/certs/acme_cloudflare.json"
       caServer: "https://acme-staging-v02.api.letsencrypt.org/directory"
       dnsChallenge:
-        provider: rfc2136
+        provider: cloudflare
         resolvers:
           - 1.1.1.1
           - 1.0.0.1
@@ -38,7 +38,7 @@ entryPoints:
         writeTimeout: 600s
     http:
       tls:
-        certResolver: technitium
+        certResolver: cloudflare
         domains:
           - main: lab.schaermu.ch
             sans:
