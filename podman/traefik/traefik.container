@@ -22,10 +22,9 @@ Secret=TRAEFIK_OIDC_CLIENT_SECRET,type=env,target=OIDC_CLIENT_SECRET
 Secret=TRAEFIK_OIDC_SECRET,type=env,target=OIDC_SECRET
 
 Label=traefik.enable=true
-Label=traefik.http.routers.api.rule=Host(`traefik.lab.schaermu.ch`)
-Label=traefik.http.routers.api.service=api@internal
-Label=traefik.http.routers.api.entrypoints=websecure
-Label=traefik.http.services.traefik.loadbalancer.server.port=8080
+Label=traefik.http.routers.traefik.rule=Host(`traefik.lab.schaermu.ch`)
+Label=traefik.http.routers.traefik.service=api@internal
+Label=traefik.http.routers.traefik.entrypoints=websecure
 
 [Install]
 WantedBy=default.target

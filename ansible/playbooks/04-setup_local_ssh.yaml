@@ -40,6 +40,7 @@
     loop:
       - { filename: nas, host_groups: [{ name: nas, hosts: "{{ groups['nas'] }}" }] }
       - { filename: dns, host_groups: [{ name: dns, hosts: "{{ groups['dns'] }}" }] }
+      - { filename: podman, host_groups: [{ name: podman, hosts: "{{ groups['podman'] }}" }] }
 
   - name: Get tailscale ip for bastion host
     action: ansible.builtin.shell

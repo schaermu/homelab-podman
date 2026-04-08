@@ -47,7 +47,6 @@ entryPoints:
         - default@file
 
 global:
-  checkNewVersion: true
   sendAnonymousUsage: false
 
 providers:
